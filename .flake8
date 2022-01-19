@@ -1,0 +1,7 @@
+[flake8]
+max-line-length = 120
+type-checking-pydantic-enabled=True
+enable-extensions=TC,TC2
+per-file-ignores =
+    */__init__.py:F401,F403
+    scripts/*:T001

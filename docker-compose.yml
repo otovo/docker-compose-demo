@@ -1,0 +1,54 @@
+version: '3.8'
+
+volumes:
+    app_db:
+        name: app_db
+    app_cache:
+        name: app_cache
+
+services:
+  redis:
+    container_name: "${PROJECT_NAME}-redis"
+    image: redis:6.2.5-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - app_cache:/var/lib/redis/data
+    ports:
+      - '127.0.0.1:6380:6379'
+
+  postgres:
+    container_name: "${PROJECT_NAME}-postgres"
+    image: postgres:13.4
+    restart: always
+    volumes:
+      - app_db:/var/lib/postgresql/data
+      - ~/.psqlrc:/root/.psqlrc:ro  # read client psql config
+      - ~/.psql_history:/root/.psql_history  # read psql history
+    ports:
+      - '127.0.0.1:5433:5432'
+    environment:
+      POSTGRES_DB: 'db'
+      POSTGRES_USER: 'username'
+      POSTGRES_PASSWORD: 'password'
+      HISTFILE: '/root/.psql_history'
+
+  web:
+    container_name: "${PROJECT_NAME}-web"
+    restart: always
+    entrypoint: scripts/entrypoint.sh
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload "
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    ports:
+      - '127.0.0.1:8001:8000'
+    volumes:
+      - '.:/app'
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      # Used for readiness checks
+      DATABASE_URL: "postgresql+asyncpg://username:password@${PROJECT_NAME}-postgres/db"
+      REDIS_URL: "redis://${PROJECT_NAME}-redis"
